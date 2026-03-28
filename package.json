@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@paper-design/shaders": "^0.0.72",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.100.0",
     "class-variance-authority": "^0.7.1",
@@ -16,6 +17,7 @@
     "framer-motion": "^12.12.1",
     "gsap": "^3.14.2",
     "lucide-react": "^0.511.0",
+    "motion": "^12.38.0",
     "next": "^15.3.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
