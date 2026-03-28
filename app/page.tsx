@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import { Component as HeroSection } from "@/components/ui/horizon-hero-section";
 import { BentoGridDemo } from "@/components/ui/demo";
+import DemoOne from "@/components/ui/bento-grid-01-demo";
 import { BentoGrid, type BentoItem } from "@/components/ui/bento-grid";
 import { Testimonials } from "@/components/ui/testimonials-columns-1-demo";
 import { FeaturesDemo } from "@/components/ui/features-10-demo";
@@ -30,18 +31,18 @@ const problemItems: BentoItem[] = [
   {
     title: "11+ Hours/Week",
     description: "Wasted on repetitive searching, applying, and tracking",
-    icon: <Clock className="w-4 h-4 text-[var(--color-text-secondary)]" />,
+    icon: <Clock className="w-4 h-4 text-amber-300" />,
   },
   {
     title: "250+ Applicants",
     description: "Average competition per job posting online",
-    icon: <Users className="w-4 h-4 text-[var(--color-text-secondary)]" />,
+    icon: <Users className="w-4 h-4 text-sky-300" />,
     hasPersistentHover: true,
   },
   {
     title: "3% Response Rate",
     description: "Most applications never get a human review",
-    icon: <TrendingUp className="w-4 h-4 text-[var(--color-text-secondary)]" />,
+    icon: <TrendingUp className="w-4 h-4 text-rose-300" />,
   },
 ];
 
@@ -103,7 +104,7 @@ export default function LandingPage() {
             className="text-center mb-16"
           >
             <h2 className="text-4xl sm:text-5xl font-bold text-[var(--color-text-primary)] font-[family-name:var(--font-display)] heading-glow">
-              Job Hunting is <span className="text-[var(--color-text-primary)] heading-glow">Broken</span>
+              Job Hunting is <span className="text-amber-300">Broken</span>
             </h2>
             <p className="mt-4 text-lg text-[var(--color-text-secondary)] max-w-2xl mx-auto">
               The average job seeker spends 11+ hours per week on repetitive tasks.
@@ -134,7 +135,7 @@ export default function LandingPage() {
           >
             <h2 className="text-4xl sm:text-5xl font-bold font-[family-name:var(--font-display)] heading-glow">
               <span className="text-[var(--color-text-primary)]">Meet Your </span>
-              <span className="gradient-text-fire">AI Team</span>
+              <span className="text-amber-300">AI Team</span>
             </h2>
             <p className="mt-4 text-lg text-[var(--color-text-secondary)] max-w-2xl mx-auto">
               Five specialized agents that never sleep, learn from every outcome,
@@ -155,6 +156,8 @@ export default function LandingPage() {
 
       <FeaturesDemo />
 
+      <DemoOne />
+
       {/* How It Works */}
       <section id="how-it-works" className="relative py-32 px-6 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[var(--color-orange-bg)] to-transparent" />
@@ -169,7 +172,7 @@ export default function LandingPage() {
           >
             <h2 className="text-4xl sm:text-5xl font-bold font-[family-name:var(--font-display)] heading-glow">
               <span className="text-[var(--color-text-primary)]">How </span>
-              <span className="gradient-text-fire">It Works</span>
+              <span className="text-amber-300">It Works</span>
             </h2>
           </motion.div>
 
@@ -232,9 +235,9 @@ export default function LandingPage() {
               </div>
 
               <h2 className="text-4xl sm:text-5xl font-bold text-[var(--color-text-primary)] mb-6 font-[family-name:var(--font-display)] heading-glow">
-                Ready to Let AI Hunt
+                Ready to Let <span className="text-amber-300">AI Hunt</span>
                 <br />
-                <span className="gradient-text-fire">While You Sleep?</span>
+                While You Sleep?
               </h2>
 
               <p className="text-lg text-[var(--color-text-secondary)] mb-10 max-w-xl mx-auto">

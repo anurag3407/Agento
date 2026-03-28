@@ -78,7 +78,7 @@ export function Testimonials() {
           </div>
 
           <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold tracking-tighter mt-5 text-[var(--color-text-primary)] [text-shadow:0_0_20px_var(--color-text-glow)]">
-            What our users say
+            What our <span className="text-amber-300">users</span> say
           </h2>
           <p className="text-center mt-5 text-[var(--color-text-secondary)] opacity-90">
             See what our customers have to say about us.
