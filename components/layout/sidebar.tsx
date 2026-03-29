@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { LiquidMetalIconBadge } from "@/components/ui/liquid-metal-button";
 import {
   LayoutDashboard,
   Search,
@@ -41,8 +42,8 @@ export default function Sidebar() {
     >
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-[var(--color-border-default)] px-4">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--color-indigo)]">
-          <Rocket className="h-5 w-5 text-white" />
+        <div className="shrink-0">
+          <LiquidMetalIconBadge icon={<Rocket className="h-4 w-4" />} size={36} />
         </div>
         {!collapsed && (
           <span className="text-lg font-bold tracking-tight gradient-text">

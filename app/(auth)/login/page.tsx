@@ -4,6 +4,7 @@ import { useState, Suspense } from "react";
 import { motion } from "framer-motion";
 import { Rocket, Github, Loader2, Mail, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { LiquidMetalIconBadge } from "@/components/ui/liquid-metal-button";
 import { createClient } from "@/lib/supabase/client";
 import { useSearchParams } from "next/navigation";
 
@@ -18,7 +19,7 @@ function LoginForm() {
     setIsLoading("google");
     setMessage(null);
     const supabase = createClient();
-    
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -36,7 +37,7 @@ function LoginForm() {
     setIsLoading("github");
     setMessage(null);
     const supabase = createClient();
-    
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {
@@ -77,11 +78,10 @@ function LoginForm() {
     <>
       {/* Error/Success messages */}
       {(error || message) && (
-        <div className={`p-4 rounded-xl text-sm ${
-          error || message?.type === "error" 
+        <div className={`p-4 rounded-xl text-sm ${error || message?.type === "error"
             ? "bg-[var(--color-rose-bg)] text-[var(--color-rose)] border border-[var(--color-rose)]/20"
             : "bg-[var(--color-emerald-bg)] text-[var(--color-emerald)] border border-[var(--color-emerald)]/20"
-        }`}>
+          }`}>
           {error === "auth_failed" ? "Authentication failed. Please try again." : message?.text}
         </div>
       )}
@@ -117,7 +117,7 @@ function LoginForm() {
           )}
           Continue with Google
         </button>
-        
+
         <button
           onClick={handleGithubLogin}
           disabled={isLoading !== null}
@@ -201,9 +201,9 @@ export default function LoginPage() {
         className="relative w-full max-w-md space-y-8 px-6"
       >
         {/* Back to home */}
-        <Link 
-          href="/" 
-          className="inline-flex items-center gap-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-orange)] transition-colors"
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to home
@@ -211,18 +211,18 @@ export default function LoginPage() {
 
         {/* Logo */}
         <div className="text-center">
-          <motion.div 
+          <motion.div
             className="relative mx-auto"
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            <div className="absolute inset-0 mx-auto w-20 h-20 bg-[var(--color-orange)] rounded-2xl blur-2xl opacity-50" />
-            <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--color-orange)] to-[var(--color-orange-intense)] shadow-2xl shadow-[var(--color-orange)]/30">
-              <Rocket className="h-10 w-10 text-white transform -rotate-45" />
+            <div className="absolute inset-0 mx-auto w-20 h-20 bg-white/20 rounded-2xl blur-2xl opacity-35" />
+            <div className="relative mx-auto w-fit">
+              <LiquidMetalIconBadge icon={<Rocket className="h-9 w-9 transform -rotate-45" />} size={80} />
             </div>
           </motion.div>
-          <motion.h1 
+          <motion.h1
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
@@ -230,7 +230,7 @@ export default function LoginPage() {
           >
             CareerPilot
           </motion.h1>
-          <motion.p 
+          <motion.p
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
@@ -241,7 +241,7 @@ export default function LoginPage() {
         </div>
 
         {/* Auth card */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
@@ -262,19 +262,19 @@ export default function LoginPage() {
         </motion.div>
 
         {/* Footer text */}
-        <motion.p 
+        <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.6 }}
           className="text-center text-xs text-[var(--color-text-muted)]"
         >
           By continuing, you agree to CareerPilot&apos;s{" "}
-          <a href="#" className="text-[var(--color-orange)] hover:underline">Terms of Service</a> and{" "}
-          <a href="#" className="text-[var(--color-orange)] hover:underline">Privacy Policy</a>.
+          <a href="#" className="text-[var(--color-text-primary)] hover:underline">Terms of Service</a> and{" "}
+          <a href="#" className="text-[var(--color-text-primary)] hover:underline">Privacy Policy</a>.
         </motion.p>
 
         {/* Tagline */}
-        <motion.p 
+        <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.7 }}
