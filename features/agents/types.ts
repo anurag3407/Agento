@@ -6,8 +6,9 @@ export interface AgentEvent {
   id: string;
   agent: AgentName;
   message: string;
-  status: "completed" | "running" | "pending";
+  status: "completed" | "running" | "pending" | "failed";
   timestamp: string;
+  metadata?: Record<string, unknown>;
 }
 
 export const agentMeta: Record<

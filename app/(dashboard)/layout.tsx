@@ -1,6 +1,7 @@
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import AgentFooter from "@/components/layout/agent-footer";
+import { AgentProvider } from "@/features/agents/context";
 
 export default function DashboardLayout({
   children,
@@ -8,7 +9,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <>
+    <AgentProvider>
       <Sidebar />
       <div className="pl-[240px] transition-all duration-300">
         <Header />
@@ -17,6 +18,6 @@ export default function DashboardLayout({
         </main>
         <AgentFooter />
       </div>
-    </>
+    </AgentProvider>
   );
 }
