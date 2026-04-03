@@ -1,14 +1,9 @@
 import { Search, BarChart3, PenTool, Target, Mail, LucideIcon } from "lucide-react";
 
-export type AgentName = "scout" | "analyzer" | "writer" | "coach" | "reporter";
+// Re-export types from the main agent types
+export type { AgentEvent } from "@/lib/agents/types";
 
-export interface AgentEvent {
-  id: string;
-  agent: AgentName;
-  message: string;
-  status: "completed" | "running" | "pending";
-  timestamp: string;
-}
+export type AgentName = "scout" | "analyzer" | "writer" | "coach" | "reporter";
 
 export const agentMeta: Record<
   AgentName,

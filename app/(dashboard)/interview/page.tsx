@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
 import {
   Code2,
   Monitor,
@@ -12,8 +13,10 @@ import {
   Video,
   Dumbbell,
   Clock,
+  Loader2,
+  Target,
+  Brain,
 } from "lucide-react";
-import { mockSessions, mockWeaknesses } from "@/data/mock-interviews";
 import Link from "next/link";
 
 const container = {
@@ -32,27 +35,33 @@ const modes = [
     icon: Code2,
     desc: "Timed DSA problems at company-specific difficulty",
     color: "var(--color-cyan)",
-  },
-  {
-    id: "code",
-    label: "Live Coding",
-    icon: Monitor,
-    desc: "AI interviewer with real-time feedback and follow-ups",
-    color: "var(--color-indigo)",
+    bg: "var(--color-cyan-bg)",
   },
   {
     id: "behavioral",
     label: "Behavioral",
     icon: Mic,
-    desc: "Voice-enabled STAR practice with speech analysis",
+    desc: "STAR-method practice with AI evaluation",
     color: "var(--color-emerald)",
+    bg: "var(--color-emerald-bg)",
   },
 ];
 
 export default function InterviewPage() {
-  const totalSessions = mockSessions.length + 11;
-  const avgImprovement = 23;
-  const strengths = ["Array/String", "Trees/Graphs", "Dynamic Programming"];
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [company, setCompany] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch("/api/interview");
+        const { data } = await res.json();
+        if (data?.length) setSessions(data);
+      } catch (e) {}
+    }
+    load();
+  }, []);
 
   return (
     <motion.div
@@ -62,39 +71,53 @@ export default function InterviewPage() {
       className="mx-auto max-w-5xl space-y-6"
     >
       <motion.div variants={item}>
-        <h1 className="text-2xl font-bold">🎯 Interview Simulator</h1>
+        <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">🎯 Interview Simulator</h1>
         <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-          Preparing for your next interview with company-specific simulations
+          Practice with AI-powered company-specific simulations
         </p>
       </motion.div>
 
+      {/* Company Input */}
+      <motion.div variants={item} className="glass-card p-5">
+        <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
+          Which company are you preparing for?
+        </label>
+        <input
+          value={company}
+          onChange={(e) => setCompany(e.target.value)}
+          className="w-full max-w-md rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-card)] px-4 py-2.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-indigo)]"
+          placeholder="e.g. Google, Stripe, Meta..."
+        />
+      </motion.div>
+
       {/* Mode Cards */}
-      <motion.div variants={item} className="grid gap-4 md:grid-cols-3">
+      <motion.div variants={item} className="grid gap-4 md:grid-cols-2">
         {modes.map((mode) => {
           const Icon = mode.icon;
           return (
-            <Link href="/interview/session" key={mode.id}>
-              <div className="glass-card group cursor-pointer p-5 transition-all hover:border-[var(--color-indigo-border)] hover:shadow-lg">
+            <Link
+              href={`/interview/session?mode=${mode.id}&company=${encodeURIComponent(company || "General")}`}
+              key={mode.id}
+            >
+              <div className="glass-card group cursor-pointer p-6 transition-all hover:border-[var(--color-indigo-border)] hover:shadow-lg h-full">
                 <div
-                  className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl"
-                  style={{
-                    backgroundColor: `color-mix(in srgb, ${mode.color} 15%, transparent)`,
-                  }}
+                  className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl"
+                  style={{ backgroundColor: mode.bg }}
                 >
-                  <Icon className="h-6 w-6" style={{ color: mode.color }} />
+                  <Icon className="h-7 w-7" style={{ color: mode.color }} />
                 </div>
-                <h3 className="text-base font-semibold text-[var(--color-text-primary)] group-hover:text-[var(--color-indigo)]">
+                <h3 className="text-lg font-semibold text-[var(--color-text-primary)] group-hover:text-[var(--color-indigo)]">
                   {mode.label}
                 </h3>
-                <p className="mt-1.5 text-xs text-[var(--color-text-secondary)]">
+                <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
                   {mode.desc}
                 </p>
-                <div className="mt-4">
+                <div className="mt-5">
                   <span
-                    className="rounded-lg px-4 py-2 text-sm font-medium text-white transition-all"
+                    className="rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-all"
                     style={{ backgroundColor: mode.color }}
                   >
-                    Start
+                    Start Session
                   </span>
                 </div>
               </div>
@@ -105,159 +128,72 @@ export default function InterviewPage() {
 
       {/* Stats */}
       <motion.div variants={item} className="glass-card p-6">
-        <h2 className="mb-5 text-base font-semibold">📊 Your Stats</h2>
-
-        <div className="mb-5 grid grid-cols-2 gap-4">
-          <div className="rounded-lg bg-[var(--color-bg-card)] p-4">
-            <p className="text-2xl font-bold text-[var(--color-text-primary)]">
-              {totalSessions}
-            </p>
-            <p className="text-xs text-[var(--color-text-muted)]">
-              Sessions completed
-            </p>
+        <h2 className="mb-4 text-base font-semibold text-[var(--color-text-primary)]">📊 Your Performance</h2>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="rounded-xl bg-[var(--color-bg-card)] p-4 text-center">
+            <p className="text-3xl font-bold text-[var(--color-indigo)]">{sessions.length || 0}</p>
+            <p className="text-xs text-[var(--color-text-muted)]">Sessions</p>
           </div>
-          <div className="rounded-lg bg-[var(--color-bg-card)] p-4">
-            <p className="text-2xl font-bold text-[var(--color-emerald)]">
-              +{avgImprovement}%
+          <div className="rounded-xl bg-[var(--color-bg-card)] p-4 text-center">
+            <p className="text-3xl font-bold text-[var(--color-emerald)]">
+              {sessions.length > 0
+                ? Math.round(sessions.reduce((acc: number, s: any) => acc + (s.scores?.overall || 0), 0) / sessions.length)
+                : 0}%
             </p>
-            <p className="text-xs text-[var(--color-text-muted)]">
-              Overall improvement
+            <p className="text-xs text-[var(--color-text-muted)]">Avg Score</p>
+          </div>
+          <div className="rounded-xl bg-[var(--color-bg-card)] p-4 text-center">
+            <p className="text-3xl font-bold text-[var(--color-amber)]">
+              {sessions.filter((s: any) => (s.scores?.overall || 0) >= 80).length}
             </p>
+            <p className="text-xs text-[var(--color-text-muted)]">Pass (80%+)</p>
           </div>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Strengths */}
-          <div>
-            <h3 className="mb-3 text-sm font-medium text-[var(--color-text-secondary)]">
-              Strengths
-            </h3>
-            <div className="space-y-2">
-              {strengths.map((s) => (
-                <div
-                  key={s}
-                  className="flex items-center gap-2 rounded-lg bg-[var(--color-emerald-bg)] px-3 py-2 text-sm text-[var(--color-emerald)]"
-                >
-                  <CheckCircle2 className="h-4 w-4" /> {s}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Weaknesses */}
-          <div>
-            <h3 className="mb-3 text-sm font-medium text-[var(--color-text-secondary)]">
-              Weaknesses
-            </h3>
-            <div className="space-y-2">
-              {mockWeaknesses.map((w) => (
-                <div
-                  key={w.topic}
-                  className="flex items-center justify-between rounded-lg bg-[var(--color-amber-bg)] px-3 py-2 text-sm text-[var(--color-amber)]"
-                >
-                  <span className="flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4" /> {w.topic}
-                  </span>
-                  <span className="text-xs opacity-70">
-                    {w.occurrenceCount}×
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Study Plan */}
-      <motion.div variants={item} className="glass-card p-6">
-        <h2 className="mb-4 flex items-center gap-2 text-base font-semibold">
-          📚 Study Plan: {mockWeaknesses[0].topic}
-        </h2>
-        <div className="space-y-3">
-          {mockWeaknesses[0].studyPlan.map((resource, idx) => {
-            const Icon =
-              resource.type === "book"
-                ? BookOpen
-                : resource.type === "video"
-                  ? Video
-                  : Dumbbell;
-            return (
-              <div
-                key={idx}
-                className="flex items-center gap-3 rounded-lg bg-[var(--color-bg-card)] p-3"
-              >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-indigo-bg)]">
-                  <Icon className="h-4 w-4 text-[var(--color-indigo)]" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                    {resource.title}
-                  </p>
-                  <p className="text-[11px] capitalize text-[var(--color-text-muted)]">
-                    {resource.type}
-                  </p>
-                </div>
-                {idx === 2 && (
-                  <span className="flex items-center gap-1 text-xs text-[var(--color-amber)]">
-                    <Clock className="h-3 w-3" /> Re-test Friday
-                  </span>
-                )}
-              </div>
-            );
-          })}
         </div>
       </motion.div>
 
       {/* Recent Sessions */}
-      <motion.div variants={item} className="glass-card p-6">
-        <h2 className="mb-4 text-base font-semibold">Recent Sessions</h2>
-        <div className="space-y-3">
-          {mockSessions.map((session) => (
-            <div
-              key={session.id}
-              className="flex items-center justify-between rounded-lg bg-[var(--color-bg-card)] p-4"
-            >
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium uppercase text-[var(--color-text-muted)]">
-                    {session.sessionType}
-                  </span>
-                  <span className="text-sm font-semibold text-[var(--color-text-primary)]">
-                    {session.company} — {session.role}
-                  </span>
+      {sessions.length > 0 && (
+        <motion.div variants={item} className="glass-card p-6">
+          <h2 className="mb-4 text-base font-semibold text-[var(--color-text-primary)]">Recent Sessions</h2>
+          <div className="space-y-3">
+            {sessions.slice(0, 5).map((session: any) => (
+              <div
+                key={session.id}
+                className="flex items-center justify-between rounded-lg bg-[var(--color-bg-card)] p-4"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-[var(--color-indigo-bg)] px-2 py-0.5 text-[10px] font-bold text-[var(--color-indigo)] uppercase">
+                      {session.sessionType || session.session_type}
+                    </span>
+                    <span className="text-sm font-semibold text-[var(--color-text-primary)]">
+                      {session.company} — {session.role}
+                    </span>
+                  </div>
+                  {(session.improvementNotes || session.improvement_notes) && (
+                    <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+                      {session.improvementNotes || session.improvement_notes}
+                    </p>
+                  )}
                 </div>
-                <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-                  {session.improvementNotes}
-                </p>
+                <div className="text-right">
+                  <p
+                    className={`text-lg font-bold ${
+                      (session.scores?.overall || 0) >= 80
+                        ? "text-[var(--color-emerald)]"
+                        : (session.scores?.overall || 0) >= 60
+                          ? "text-[var(--color-amber)]"
+                          : "text-[var(--color-rose)]"
+                    }`}
+                  >
+                    {session.scores?.overall || "—"}%
+                  </p>
+                </div>
               </div>
-              <div className="text-right">
-                <p
-                  className={`text-lg font-bold ${
-                    session.scores.overall >= 80
-                      ? "text-[var(--color-emerald)]"
-                      : session.scores.overall >= 60
-                        ? "text-[var(--color-amber)]"
-                        : "text-[var(--color-rose)]"
-                  }`}
-                >
-                  {session.scores.overall}%
-                </p>
-                <p className="text-[10px] text-[var(--color-text-muted)]">
-                  {getTimeAgo(session.completedAt)}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      )}
     </motion.div>
   );
-}
-
-function getTimeAgo(timestamp: string): string {
-  const seconds = Math.floor(
-    (Date.now() - new Date(timestamp).getTime()) / 1000
-  );
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
 }

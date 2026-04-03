@@ -1,12 +1,57 @@
-import { NextResponse } from "next/server";
+/**
+ * Interview API Route
+ * ===================
+ * GET /api/interview - Get interview sessions
+ * POST /api/interview - Generate prep or evaluate answer
+ */
+
+import { NextRequest, NextResponse } from "next/server";
 import { mockSessions } from "@/data/mock-interviews";
+import { generateInterviewPrep, evaluateBehavioralAnswer } from "@/lib/agents";
+
+export const maxDuration = 30;
 
 export async function GET() {
   return NextResponse.json({ success: true, data: mockSessions });
 }
 
-export async function POST(request: Request) {
-  // Stub: save a completed interview session
-  const body = await request.json();
-  return NextResponse.json({ success: true, sessionId: `s${Date.now()}` });
+interface PrepRequest {
+  company: string;
+  mode: "oa" | "code" | "behavioral";
+}
+
+interface EvaluateRequest {
+  question: string;
+  answer: string;
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    
+    // Check if it's an evaluation request
+    if (body.question && body.answer) {
+      const evalBody = body as EvaluateRequest;
+      const evaluation = await evaluateBehavioralAnswer(evalBody.question, evalBody.answer);
+      return NextResponse.json({ success: true, evaluation });
+    }
+    
+    // Check if it's a prep generation request
+    if (body.company && body.mode) {
+      const prepBody = body as PrepRequest;
+      const session = await generateInterviewPrep(prepBody.company, prepBody.mode);
+      return NextResponse.json({ success: true, session });
+    }
+    
+    // Legacy: simple session creation
+    return NextResponse.json({ success: true, sessionId: `s${Date.now()}` });
+    
+  } catch (error) {
+    console.error("Interview API error:", error);
+    
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 }
+    );
+  }
 }

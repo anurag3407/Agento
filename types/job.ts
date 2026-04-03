@@ -7,6 +7,7 @@ export interface Job {
   salary?: string;
   source: string;
   sourceUrl: string;
+  applyUrl?: string;
   postedAt: string;
   discoveredAt: string;
   isFresh: boolean;

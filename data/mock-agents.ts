@@ -1,4 +1,4 @@
-import type { AgentEvent } from "@/features/agents/types";
+import type { AgentEvent } from "@/lib/agents/types";
 
 export const mockAgentEvents: AgentEvent[] = [
   {

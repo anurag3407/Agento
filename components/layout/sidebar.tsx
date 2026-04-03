@@ -35,25 +35,25 @@ export default function Sidebar() {
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r transition-all duration-300",
-        "border-[var(--color-border-default)] bg-[var(--color-bg-secondary)]",
+        "fixed left-4 top-4 bottom-4 z-40 flex flex-col rounded-2xl border transition-all duration-300 backdrop-blur-2xl glass-card",
+        "border-[var(--color-border-default)] shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4)]",
         collapsed ? "w-[68px]" : "w-[240px]"
       )}
     >
       {/* Logo */}
-      <div className="flex h-16 items-center gap-3 border-b border-[var(--color-border-default)] px-4">
-        <div className="shrink-0">
+      <div className="flex h-20 items-center justify-center gap-3 border-b border-[var(--color-border-default)] px-4">
+        <div className="shrink-0 flex items-center justify-center">
           <LiquidMetalIconBadge icon={<Rocket className="h-4 w-4" />} size={36} />
         </div>
         {!collapsed && (
-          <span className="text-lg font-bold tracking-tight gradient-text">
+          <span className="text-xl font-bold tracking-tight gradient-text">
             CareerPilot
           </span>
         )}
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 space-y-2 overflow-y-auto px-3 py-6">
         {navItems.map((item) => {
           const isActive =
             pathname === item.href || pathname.startsWith(item.href + "/");
@@ -63,7 +63,7 @@ export default function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                "group flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-all duration-300",
                 isActive
                   ? "bg-[var(--color-indigo-bg)] text-[var(--color-indigo)] shadow-[inset_0_0_0_1px_var(--color-indigo-border)]"
                   : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-card)] hover:text-[var(--color-text-primary)]"
@@ -87,12 +87,12 @@ export default function Sidebar() {
       <div className="border-t border-[var(--color-border-default)] p-3">
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="flex w-full items-center justify-center rounded-lg py-2 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-card)] hover:text-[var(--color-text-secondary)]"
+          className="flex w-full items-center justify-center rounded-xl py-3 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-card)] hover:text-[var(--color-text-secondary)]"
         >
           {collapsed ? (
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-5 w-5" />
           ) : (
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-5 w-5" />
           )}
         </button>
       </div>
