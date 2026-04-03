@@ -1,44 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { getProfile, upsertProfile } from "@/lib/supabase/queries";
-import { mockUser } from "@/data/mock-user";
+import { verifyFirebaseToken } from "@/lib/firebase/verify-token";
+import { getProfile, upsertProfile } from "@/lib/firebase/firestore";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await verifyFirebaseToken(request);
 
-    if (user) {
-      const profile = await getProfile(supabase, user.id);
-      if (profile) {
-        return NextResponse.json({
-          success: true,
-          data: {
-            id: profile.id,
-            name: profile.name || user.user_metadata?.full_name || user.email?.split("@")[0],
-            email: profile.email || user.email,
-            avatarUrl: profile.avatar_url || user.user_metadata?.avatar_url,
-            title: profile.title || "",
-            skills: profile.skills || [],
-            careerGoal: profile.career_goal || "",
-            onboardingComplete: profile.onboarding_complete || false,
-          },
-        });
-      }
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
-    // Fallback to mock
+    let profile = await getProfile(user.uid);
+    if (!profile) {
+      profile = await upsertProfile(user.uid, {
+        email: user.email || "",
+        name: user.name || user.email?.split("@")[0] || "",
+        avatar_url: user.picture || "",
+        onboarding_complete: false,
+      });
+    }
+
+    const p = profile as Record<string, unknown>;
     return NextResponse.json({
       success: true,
       data: {
-        id: mockUser.id,
-        name: mockUser.name,
-        email: mockUser.email,
-        avatarUrl: mockUser.avatar,
-        title: mockUser.title,
-        skills: mockUser.skills,
-        careerGoal: mockUser.careerGoal,
-        onboardingComplete: true,
+        id: user.uid,
+        name: p.name || user.name || user.email?.split("@")[0],
+        email: p.email || user.email,
+        avatarUrl: p.avatar_url || user.picture,
+        title: p.title || "",
+        skills: p.skills || [],
+        careerGoal: p.career_goal || "",
+        onboardingComplete: p.onboarding_complete || false,
       },
     });
   } catch (error) {
@@ -52,11 +48,13 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await verifyFirebaseToken(request);
 
     if (!user) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
     const body = await request.json();
@@ -68,9 +66,10 @@ export async function PUT(request: NextRequest) {
     if (body.preferences !== undefined) updates.preferences = body.preferences;
     if (body.education !== undefined) updates.education = body.education;
     if (body.experience !== undefined) updates.experience = body.experience;
-    if (body.onboardingComplete !== undefined) updates.onboarding_complete = body.onboardingComplete;
+    if (body.onboardingComplete !== undefined)
+      updates.onboarding_complete = body.onboardingComplete;
 
-    const saved = await upsertProfile(supabase, user.id, updates);
+    const saved = await upsertProfile(user.uid, updates);
     return NextResponse.json({ success: true, data: saved });
   } catch (error) {
     console.error("Profile PUT error:", error);

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { siteConfig } from "@/config/site";
+import { AuthProvider } from "@/lib/firebase/auth-context";
 
 export const metadata: Metadata = {
   title: `${siteConfig.name} — Your AI Job-Hunting Teammate`,
@@ -27,7 +28,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-[var(--color-bg-primary)] antialiased noise-overlay">
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

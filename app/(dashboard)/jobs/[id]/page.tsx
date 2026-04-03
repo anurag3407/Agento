@@ -2,10 +2,10 @@
 
 import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { mockJobs } from "@/data/mock-jobs";
-import { mockUser } from "@/data/mock-user";
 import Link from "next/link";
 import { useState } from "react";
+import { useStore } from "@/lib/store";
+import { useAuthContext } from "@/lib/firebase/auth-context";
 import {
   ArrowLeft,
   Flame,
@@ -32,11 +32,23 @@ type ApplyPhase = "idle" | "generating" | "review" | "ready";
 
 export default function JobDetailPage() {
   const params = useParams();
-  const job = mockJobs.find((j) => j.id === params.id);
+  const { state } = useStore();
+  const { getIdToken } = useAuthContext();
+  const job = state.jobs.find((j) => j.id === params.id);
+  const isInitialized = state.initialized;
   const [applyPhase, setApplyPhase] = useState<ApplyPhase>("idle");
   const [generatedResume, setGeneratedResume] = useState("");
   const [generatedCoverLetter, setGeneratedCoverLetter] = useState("");
   const [copied, setCopied] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
+
+  if (!job && !isInitialized) {
+    return (
+      <div className="flex h-96 items-center justify-center text-[var(--color-text-muted)]">
+        Loading job...
+      </div>
+    );
+  }
 
   if (!job) {
     return (
@@ -48,33 +60,50 @@ export default function JobDetailPage() {
 
   const handleApply = async () => {
     setApplyPhase("generating");
+    setApplyError(null);
     
     try {
-      const response = await fetch("/api/resumes", {
+      const token = await getIdToken();
+      if (!token) {
+        setApplyPhase("idle");
+        setApplyError("Please sign in to generate a resume.");
+        return;
+      }
+
+      const response = await fetch("/api/agents/resume", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
-          action: "generate",
           jobId: job.id,
           jobTitle: job.title,
           jobDescription: job.description,
-          company: job.company,
-          userProfile: mockUser,
+          jobCompany: job.company,
+          jobSkills: requiredSkills,
         }),
       });
 
+      if (!response.ok) {
+        throw new Error("Resume generation failed");
+      }
+
       const data = await response.json();
-      
-      // Use real or fallback data
-      setGeneratedResume(data.resume || generateFallbackResume(job));
-      setGeneratedCoverLetter(data.coverLetter || generateFallbackCoverLetter(job));
+      const content = data?.data?.content || "";
+      const coverLetter = data?.data?.cover_letter || "";
+
+      if (!content) {
+        throw new Error("Resume content missing");
+      }
+
+      setGeneratedResume(content);
+      setGeneratedCoverLetter(coverLetter);
       setApplyPhase("review");
     } catch (error) {
-      // Fallback to mock generation
-      await new Promise((r) => setTimeout(r, 2000));
-      setGeneratedResume(generateFallbackResume(job));
-      setGeneratedCoverLetter(generateFallbackCoverLetter(job));
-      setApplyPhase("review");
+      console.error("Resume generation error:", error);
+      setApplyPhase("idle");
+      setApplyError("Failed to generate resume. Please try again.");
     }
   };
 
@@ -86,6 +115,16 @@ export default function JobDetailPage() {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const requiredSkills = job.extractedSkills || [];
+  const niceToHaveSkills: string[] = [];
+  const hiddenRequirements = job.hiddenRequirements || [];
+  const scores = job.scores || {
+    skills: 0,
+    culture: 0,
+    trajectory: 0,
+    composite: 0,
   };
 
   // Apply Modal/Panel
@@ -211,7 +250,7 @@ export default function JobDetailPage() {
                   </h4>
                   <div className="flex flex-wrap gap-2">
                     <span className="rounded-full bg-[var(--color-indigo-bg)] px-2 py-1 text-[10px] text-[var(--color-indigo)]">
-                      Emphasized: {job.requiredSkills[0]}
+                      Emphasized: {requiredSkills[0] || "Key skills"}
                     </span>
                     <span className="rounded-full bg-[var(--color-indigo-bg)] px-2 py-1 text-[10px] text-[var(--color-indigo)]">
                       Added metrics to experience
@@ -299,6 +338,11 @@ export default function JobDetailPage() {
         animate={{ opacity: 1, y: 0 }}
         className="mx-auto max-w-4xl space-y-6"
       >
+        {applyError && (
+          <div className="rounded-lg border border-[var(--color-rose)]/30 bg-[var(--color-rose-bg)] px-4 py-3 text-sm text-[var(--color-rose)]">
+            {applyError}
+          </div>
+        )}
         {/* Back + Title */}
         <div>
           <Link
@@ -347,9 +391,9 @@ export default function JobDetailPage() {
         <div className="glass-card p-6">
           <h2 className="mb-5 text-base font-semibold">Match Breakdown</h2>
           <div className="space-y-5">
-            <ScoreBar label="Skills Match" score={job.scores.skills}>
+            <ScoreBar label="Skills Match" score={scores.skills}>
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {job.requiredSkills.map((s) => (
+                {requiredSkills.map((s) => (
                   <span
                     key={s}
                     className="rounded-md bg-[var(--color-emerald-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-emerald)]"
@@ -357,7 +401,7 @@ export default function JobDetailPage() {
                     <CheckCircle2 className="mr-0.5 inline h-3 w-3" /> {s}
                   </span>
                 ))}
-                {job.niceToHaveSkills.map((s) => (
+                {niceToHaveSkills.map((s) => (
                   <span
                     key={s}
                     className="rounded-md bg-[var(--color-amber-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-amber)]"
@@ -368,14 +412,14 @@ export default function JobDetailPage() {
               </div>
             </ScoreBar>
 
-            <ScoreBar label="Culture Fit" score={job.scores.culture}>
+            <ScoreBar label="Culture Fit" score={scores.culture}>
               <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
                 Glassdoor: 4.2★ • Work-Life Balance: 3.8 • Engineering
                 Culture: A+
               </p>
             </ScoreBar>
 
-            <ScoreBar label="Career Trajectory" score={job.scores.trajectory}>
+            <ScoreBar label="Career Trajectory" score={scores.trajectory}>
               <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
                 &ldquo;This role builds directly toward your goal of technical
                 leadership in distributed systems.&rdquo;
@@ -385,14 +429,14 @@ export default function JobDetailPage() {
         </div>
 
         {/* Hidden Requirements */}
-        {job.hiddenRequirements.length > 0 && (
+        {hiddenRequirements.length > 0 && (
           <div className="glass-card border-[var(--color-amber)]/20 p-6">
             <h2 className="mb-4 flex items-center gap-2 text-base font-semibold">
               <AlertTriangle className="h-5 w-5 text-[var(--color-amber)]" />
               Hidden Requirements
             </h2>
             <div className="space-y-3">
-              {job.hiddenRequirements.map((req, idx) => (
+              {hiddenRequirements.map((req, idx) => (
                 <div
                   key={idx}
                   className="flex items-start gap-3 rounded-lg bg-[var(--color-bg-card)] p-3"
@@ -433,7 +477,7 @@ export default function JobDetailPage() {
             AI Reasoning
           </h2>
           <p className="text-sm leading-relaxed text-[var(--color-text-secondary)]">
-            &ldquo;{job.aiReasoning}&rdquo;
+            &ldquo;{job.aiReasoning || ""}&rdquo;
           </p>
         </div>
 
@@ -514,41 +558,4 @@ function getTimeAgo(timestamp: string): string {
   if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
   return `${Math.floor(seconds / 86400)} days ago`;
-}
-
-// Fallback generators
-function generateFallbackResume(job: typeof mockJobs[0]): string {
-  return `ANURAG
-Full-Stack Developer | ${job.requiredSkills.slice(0, 3).join(" • ")}
-anurag@careerpilot.dev | github.com/anurag
-
-SUMMARY
-Results-driven developer with expertise in ${job.requiredSkills[0]} and ${job.requiredSkills[1]}, 
-seeking ${job.title} role at ${job.company}. Proven track record of building 
-scalable applications serving 50K+ users.
-
-EXPERIENCE
-Software Engineer | TechStartup Inc. | 2024 - Present
-• Built full-stack applications with ${job.requiredSkills[0]}, improving load times by 40%
-• Led migration to ${job.requiredSkills[1]}, reducing infrastructure costs by 25%
-• Mentored junior developers and established best practices
-
-SKILLS
-${job.requiredSkills.join(", ")}
-
-EDUCATION
-B.Tech in Computer Science | University of Mumbai | 2024`;
-}
-
-function generateFallbackCoverLetter(job: typeof mockJobs[0]): string {
-  return `Dear Hiring Manager,
-
-I am excited to apply for the ${job.title} position at ${job.company}. With my background in ${job.requiredSkills.slice(0, 2).join(" and ")}, I am confident I would be a valuable addition to your team.
-
-In my current role, I have developed scalable applications serving thousands of users, directly aligning with ${job.company}'s mission. I am particularly drawn to this opportunity because of ${job.company}'s innovative approach and strong engineering culture.
-
-I would welcome the opportunity to discuss how my skills and experience can contribute to your team's success.
-
-Best regards,
-Anurag`;
 }

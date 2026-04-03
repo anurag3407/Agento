@@ -2,33 +2,41 @@
 
 import { useState, Suspense } from "react";
 import { motion } from "framer-motion";
-import { Rocket, Github, Loader2, Mail, ArrowLeft } from "lucide-react";
+import { Rocket, Github, Loader2, Mail, ArrowLeft, Lock } from "lucide-react";
 import Link from "next/link";
 import { LiquidMetalIconBadge } from "@/components/ui/liquid-metal-button";
-import { createClient } from "@/lib/supabase/client";
-import { useSearchParams } from "next/navigation";
+import { useAuth } from "@/lib/hooks/use-auth";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
+import { auth } from "@/lib/firebase/config";
+import { useSearchParams, useRouter } from "next/navigation";
 
 function LoginForm() {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSignUp, setIsSignUp] = useState(false);
   const [isLoading, setIsLoading] = useState<string | null>(null);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
+  const router = useRouter();
+  const { signInWithGoogle, signInWithGithub } = useAuth();
 
   const handleGoogleLogin = async () => {
     setIsLoading("google");
     setMessage(null);
-    const supabase = createClient();
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-
-    if (error) {
-      setMessage({ type: "error", text: error.message });
+    try {
+      await signInWithGoogle();
+      router.push("/dashboard");
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Google sign-in failed";
+      setMessage({ type: "error", text: errorMessage });
       setIsLoading(null);
     }
   };
@@ -36,53 +44,58 @@ function LoginForm() {
   const handleGithubLogin = async () => {
     setIsLoading("github");
     setMessage(null);
-    const supabase = createClient();
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "github",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-
-    if (error) {
-      setMessage({ type: "error", text: error.message });
+    try {
+      await signInWithGithub();
+      router.push("/dashboard");
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : "GitHub sign-in failed";
+      setMessage({ type: "error", text: errorMessage });
       setIsLoading(null);
     }
   };
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
+    if (!email || !password) return;
 
     setIsLoading("email");
     setMessage(null);
-    const supabase = createClient();
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-
-    if (error) {
-      setMessage({ type: "error", text: error.message });
-    } else {
-      setMessage({ type: "success", text: "Check your email for the magic link!" });
+    try {
+      if (isSignUp) {
+        await createUserWithEmailAndPassword(auth, email, password);
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+      router.push("/dashboard");
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Authentication failed";
+      // Clean up Firebase error messages
+      const cleanMessage = errorMessage
+        .replace("Firebase: ", "")
+        .replace(/\(auth\/.*\)/, "")
+        .trim();
+      setMessage({ type: "error", text: cleanMessage || "Authentication failed" });
+      setIsLoading(null);
     }
-    setIsLoading(null);
   };
 
   return (
     <>
       {/* Error/Success messages */}
       {(error || message) && (
-        <div className={`p-4 rounded-xl text-sm ${error || message?.type === "error"
-            ? "bg-[var(--color-rose-bg)] text-[var(--color-rose)] border border-[var(--color-rose)]/20"
-            : "bg-[var(--color-emerald-bg)] text-[var(--color-emerald)] border border-[var(--color-emerald)]/20"
-          }`}>
-          {error === "auth_failed" ? "Authentication failed. Please try again." : message?.text}
+        <div
+          className={`p-4 rounded-xl text-sm ${
+            error || message?.type === "error"
+              ? "bg-[var(--color-rose-bg)] text-[var(--color-rose)] border border-[var(--color-rose)]/20"
+              : "bg-[var(--color-emerald-bg)] text-[var(--color-emerald)] border border-[var(--color-emerald)]/20"
+          }`}
+        >
+          {error === "auth_failed"
+            ? "Authentication failed. Please try again."
+            : message?.text}
         </div>
       )}
 
@@ -135,12 +148,14 @@ function LoginForm() {
       {/* Divider */}
       <div className="flex items-center gap-4">
         <div className="h-px flex-1 bg-[var(--color-border-default)]" />
-        <span className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide">or</span>
+        <span className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide">
+          or
+        </span>
         <div className="h-px flex-1 bg-[var(--color-border-default)]" />
       </div>
 
-      {/* Email input */}
-      <form onSubmit={handleEmailLogin} className="space-y-3">
+      {/* Email/Password form */}
+      <form onSubmit={handleEmailAuth} className="space-y-3">
         <div className="relative">
           <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--color-text-muted)]" />
           <input
@@ -151,19 +166,40 @@ function LoginForm() {
             className="h-12 w-full rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-input)] pl-12 pr-4 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] transition-all focus:border-[var(--color-orange)] focus:outline-none focus:ring-2 focus:ring-[var(--color-orange)]/20"
           />
         </div>
+        <div className="relative">
+          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--color-text-muted)]" />
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password (min 6 characters)"
+            className="h-12 w-full rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-input)] pl-12 pr-4 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] transition-all focus:border-[var(--color-orange)] focus:outline-none focus:ring-2 focus:ring-[var(--color-orange)]/20"
+          />
+        </div>
         <button
           type="submit"
-          disabled={isLoading !== null || !email}
+          disabled={isLoading !== null || !email || !password}
           className="h-12 w-full rounded-xl btn-primary text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {isLoading === "email" ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              Sending...
+              {isSignUp ? "Creating account..." : "Signing in..."}
             </>
+          ) : isSignUp ? (
+            "Create Account"
           ) : (
-            "Continue with Email"
+            "Sign In with Email"
           )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setIsSignUp(!isSignUp)}
+          className="w-full text-center text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+        >
+          {isSignUp
+            ? "Already have an account? Sign in"
+            : "Don't have an account? Create one"}
         </button>
       </form>
     </>
@@ -180,6 +216,7 @@ function LoginFormSkeleton() {
         <div className="w-8 h-3 rounded bg-[var(--color-bg-card)]" />
         <div className="h-px flex-1 bg-[var(--color-border-default)]" />
       </div>
+      <div className="h-12 w-full rounded-xl bg-[var(--color-bg-card)]" />
       <div className="h-12 w-full rounded-xl bg-[var(--color-bg-card)]" />
       <div className="h-12 w-full rounded-xl bg-[var(--color-bg-card)]" />
     </div>
@@ -219,7 +256,10 @@ export default function LoginPage() {
           >
             <div className="absolute inset-0 mx-auto w-20 h-20 bg-white/20 rounded-2xl blur-2xl opacity-35" />
             <div className="relative mx-auto w-fit">
-              <LiquidMetalIconBadge icon={<Rocket className="h-9 w-9 transform -rotate-45" />} size={80} />
+              <LiquidMetalIconBadge
+                icon={<Rocket className="h-9 w-9 transform -rotate-45" />}
+                size={80}
+              />
             </div>
           </motion.div>
           <motion.h1
@@ -269,8 +309,20 @@ export default function LoginPage() {
           className="text-center text-xs text-[var(--color-text-muted)]"
         >
           By continuing, you agree to CareerPilot&apos;s{" "}
-          <a href="#" className="text-[var(--color-text-primary)] hover:underline">Terms of Service</a> and{" "}
-          <a href="#" className="text-[var(--color-text-primary)] hover:underline">Privacy Policy</a>.
+          <a
+            href="#"
+            className="text-[var(--color-text-primary)] hover:underline"
+          >
+            Terms of Service
+          </a>{" "}
+          and{" "}
+          <a
+            href="#"
+            className="text-[var(--color-text-primary)] hover:underline"
+          >
+            Privacy Policy
+          </a>
+          .
         </motion.p>
 
         {/* Tagline */}
@@ -280,7 +332,9 @@ export default function LoginPage() {
           transition={{ duration: 0.5, delay: 0.7 }}
           className="text-center text-sm font-medium text-[var(--color-text-secondary)]"
         >
-          &ldquo;You sleep. <span className="gradient-text-fire">CareerPilot hunts.</span>&rdquo;
+          &ldquo;You sleep.{" "}
+          <span className="gradient-text-fire">CareerPilot hunts.</span>
+          &rdquo;
         </motion.p>
       </motion.div>
     </div>

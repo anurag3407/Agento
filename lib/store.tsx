@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from "react";
 import type { AgentEvent } from "@/lib/agents/types";
+import { useAuthContext } from "@/lib/firebase/auth-context";
 
 // ============================================
 // Types
@@ -244,42 +245,49 @@ export function useStoreActions() {
 export function useInitializeStore() {
   const { state } = useStore();
   const actions = useStoreActions();
+  const { getIdToken, user } = useAuthContext();
 
   useEffect(() => {
     if (state.initialized) return;
 
     async function loadData() {
       try {
+        const token = await getIdToken();
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+
         // Load user profile
-        const profileRes = await fetch("/api/profile");
+        const profileRes = await fetch("/api/profile", { headers });
         if (profileRes.ok) {
           const { data } = await profileRes.json();
           if (data) actions.setUser(data);
         }
 
         // Load jobs
-        const jobsRes = await fetch("/api/jobs");
+        const jobsRes = await fetch("/api/jobs", { headers });
         if (jobsRes.ok) {
           const { data } = await jobsRes.json();
           if (data?.length) actions.setJobs(data);
         }
 
         // Load applications
-        const appsRes = await fetch("/api/applications");
+        const appsRes = await fetch("/api/applications", { headers });
         if (appsRes.ok) {
           const { data } = await appsRes.json();
           if (data?.length) actions.setApplications(data);
         }
 
         // Load resumes
-        const resumesRes = await fetch("/api/resumes");
+        const resumesRes = await fetch("/api/resumes", { headers });
         if (resumesRes.ok) {
           const { data } = await resumesRes.json();
           if (data?.length) actions.setResumes(data);
         }
 
         // Load today's briefing
-        const briefRes = await fetch("/api/agents/briefing");
+        const briefRes = await fetch("/api/agents/briefing", { headers });
         if (briefRes.ok) {
           const { data } = await briefRes.json();
           if (data) actions.setBriefing(data);
@@ -292,5 +300,6 @@ export function useInitializeStore() {
     }
 
     loadData();
-  }, [state.initialized, actions]);
+  }, [state.initialized, actions, getIdToken, user]);
 }
+

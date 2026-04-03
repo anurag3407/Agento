@@ -1,39 +1,10 @@
-// Database query stubs — replace with real Supabase queries
+// Database queries — delegated to lib/firebase/firestore.ts
+// This file is kept for backwards compatibility but all real queries
+// are in lib/firebase/firestore.ts
 
-import type { DbSchema } from "./schema";
-
-/**
- * Fetch all jobs for the current user.
- * Stub — replace with: supabase.from('jobs').select('*').eq('user_id', userId)
- */
-export async function getJobs(_userId: string): Promise<DbSchema["jobs"][]> {
-  return []; // TODO: implement with Supabase client
-}
-
-/**
- * Fetch all applications for the current user.
- * Stub — replace with real Supabase query.
- */
-export async function getApplications(
-  _userId: string
-): Promise<DbSchema["applications"][]> {
-  return [];
-}
-
-/**
- * Fetch all resume variants for the current user.
- */
-export async function getResumeVariants(
-  _userId: string
-): Promise<DbSchema["resume_variants"][]> {
-  return [];
-}
-
-/**
- * Fetch all interview sessions for the current user.
- */
-export async function getInterviewSessions(
-  _userId: string
-): Promise<DbSchema["interview_sessions"][]> {
-  return [];
-}
+export {
+  getJobs,
+  getApplications,
+  getResumes,
+  getInterviewSessions,
+} from "@/lib/firebase/firestore";
