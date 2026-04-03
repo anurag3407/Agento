@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { mockUser } from "@/data/mock-user";
+import { useStore } from "@/lib/store";
 import {
   User,
   MapPin,
@@ -25,6 +25,15 @@ const item = {
 };
 
 export default function SettingsPage() {
+  const { state } = useStore();
+  const user = state.user;
+  const preferences = {
+    workMode: "remote",
+    salaryMin: "",
+    salaryMax: "",
+    visaSponsorship: false,
+  };
+
   return (
     <motion.div
       variants={container}
@@ -42,15 +51,15 @@ export default function SettingsPage() {
           <User className="h-5 w-5 text-[var(--color-indigo)]" /> Profile
         </h2>
         <div className="space-y-4">
-          <FormField label="Full Name" defaultValue={mockUser.name} />
-          <FormField label="Email" defaultValue={mockUser.email} type="email" />
-          <FormField label="Title" defaultValue={mockUser.title} />
+          <FormField label="Full Name" defaultValue={user?.name || ""} />
+          <FormField label="Email" defaultValue={user?.email || ""} type="email" />
+          <FormField label="Title" defaultValue={user?.title || ""} />
           <div>
             <label className="mb-1.5 block text-xs font-medium text-[var(--color-text-secondary)]">
               Skills
             </label>
             <div className="flex flex-wrap gap-1.5">
-              {mockUser.skills.map((skill) => (
+              {(user?.skills || []).map((skill) => (
                 <span
                   key={skill.name}
                   className="rounded-md bg-[var(--color-indigo-bg)] px-2.5 py-1 text-xs font-medium text-[var(--color-indigo)]"
@@ -80,7 +89,7 @@ export default function SettingsPage() {
                 <button
                   key={mode}
                   className={`rounded-lg border px-4 py-2 text-xs font-medium transition-all ${
-                    mockUser.preferences.workMode === mode.toLowerCase()
+                    preferences.workMode === mode.toLowerCase()
                       ? "border-[var(--color-indigo-border)] bg-[var(--color-indigo-bg)] text-[var(--color-indigo)]"
                       : "border-[var(--color-border-default)] bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-hover)]"
                   }`}
@@ -93,12 +102,12 @@ export default function SettingsPage() {
           <div className="grid grid-cols-2 gap-4">
             <FormField
               label="Min Salary"
-              defaultValue={mockUser.preferences.salaryMin?.toString() || ""}
+              defaultValue={preferences.salaryMin}
               icon={<span className="text-xs text-[var(--color-text-muted)]">$</span>}
             />
             <FormField
               label="Max Salary"
-              defaultValue={mockUser.preferences.salaryMax?.toString() || ""}
+              defaultValue={preferences.salaryMax}
               icon={<span className="text-xs text-[var(--color-text-muted)]">$</span>}
             />
           </div>
@@ -113,14 +122,14 @@ export default function SettingsPage() {
             </div>
             <div
               className={`h-6 w-11 rounded-full p-0.5 transition-colors ${
-                mockUser.preferences.visaSponsorship
+                preferences.visaSponsorship
                   ? "bg-[var(--color-indigo)]"
                   : "bg-[var(--color-border-default)]"
               }`}
             >
               <div
                 className={`h-5 w-5 rounded-full bg-white transition-transform ${
-                  mockUser.preferences.visaSponsorship
+                  preferences.visaSponsorship
                     ? "translate-x-5"
                     : "translate-x-0"
                 }`}

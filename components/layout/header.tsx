@@ -2,20 +2,17 @@
 
 import { Bell, Search, User, LogOut } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/hooks/use-auth";
 
 export default function Header() {
   const { state } = useStore();
-  const router = useRouter();
+  const { signOut } = useAuth();
   const userName = state.user?.name || "User";
   const notificationCount = state.applications.filter((a) => a.status === "offered").length
     + (state.briefing ? 1 : 0);
 
   const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/login");
+    await signOut();
   };
 
   return (

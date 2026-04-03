@@ -428,6 +428,7 @@ export default function DashboardPage() {
   const { state } = useStore();
   const { setJobs, addAgentEvent, setAgentRunning, setAgentEvents } = useStoreActions();
   const [isRunning, setIsRunning] = useState(false);
+  const [agentError, setAgentError] = useState<string | null>(null);
 
   // Sort jobs by composite score (descending)
   const topJobs = [...state.jobs]
@@ -439,6 +440,7 @@ export default function DashboardPage() {
     setIsRunning(true);
     setAgentRunning(true);
     setAgentEvents([]);
+    setAgentError(null);
 
     try {
       addAgentEvent({ id: `evt-${Date.now()}-1`, agent: "scout", status: "running", message: "Scanning job boards...", timestamp: new Date().toISOString() });
@@ -465,6 +467,19 @@ export default function DashboardPage() {
       });
 
       const data = await res.json();
+
+      if (!res.ok) {
+        const message = data?.error || "Failed to run agents.";
+        setAgentError(message);
+        addAgentEvent({
+          id: `evt-${Date.now()}-err`,
+          agent: "scout",
+          status: "failed",
+          message,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
 
       addAgentEvent({ id: `evt-${Date.now()}-2`, agent: "scout", status: "completed", message: `Found ${data.jobsFound || 0} opportunities`, timestamp: new Date().toISOString() });
       addAgentEvent({ id: `evt-${Date.now()}-3`, agent: "analyzer", status: "completed", message: `Scored ${data.scoredJobs?.length || 0} matches`, timestamp: new Date().toISOString() });
@@ -502,7 +517,8 @@ export default function DashboardPage() {
         }
       }
     } catch (error) {
-      addAgentEvent({ id: `evt-${Date.now()}-err`, agent: "scout", status: "failed", message: "Agent run failed. Using cached data.", timestamp: new Date().toISOString() });
+      setAgentError("Agent run failed. Please try again.");
+      addAgentEvent({ id: `evt-${Date.now()}-err`, agent: "scout", status: "failed", message: "Agent run failed.", timestamp: new Date().toISOString() });
     } finally {
       setIsRunning(false);
       setAgentRunning(false);
@@ -551,6 +567,12 @@ export default function DashboardPage() {
           )}
         </button>
       </div>
+
+      {agentError && (
+        <div className="rounded-lg border border-[var(--color-rose)]/30 bg-[var(--color-rose-bg)] px-4 py-3 text-sm text-[var(--color-rose)]">
+          {agentError}
+        </div>
+      )}
 
       {/* Pipeline Stats */}
       <PipelineStats />

@@ -1,44 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { getResumes, upsertResume } from "@/lib/supabase/queries";
-import { mockResumes } from "@/data/mock-resumes";
+import { verifyFirebaseToken } from "@/lib/firebase/verify-token";
+import { getResumes, upsertResume } from "@/lib/firebase/firestore";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await verifyFirebaseToken(request);
 
-    if (user) {
-      const resumes = await getResumes(supabase, user.id);
-      if (resumes.length > 0) {
-        const transformed = resumes.map((r: any) => ({
-          id: r.id,
-          jobId: r.job_id,
-          jobTitle: r.jobs?.title || "",
-          jobCompany: r.jobs?.company || "",
-          framingStrategy: r.framing_strategy,
-          content: r.content,
-          coverLetter: r.cover_letter,
-          status: r.status,
-          callbackCount: r.callback_count,
-          totalSent: r.total_sent,
-          createdAt: r.created_at,
-        }));
-        return NextResponse.json({ success: true, data: transformed });
-      }
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
-    return NextResponse.json({ success: true, data: mockResumes });
+    const resumes = await getResumes(user.uid);
+    const transformed = resumes.map((r: Record<string, unknown>) => {
+      const jobs = r.jobs as | { title?: string; company?: string } | undefined;
+      return {
+        id: r.id,
+        jobId: r.job_id,
+        jobTitle: jobs?.title || "",
+        jobCompany: jobs?.company || "",
+        framingStrategy: r.framing_strategy,
+        content: r.content,
+        coverLetter: r.cover_letter,
+        status: r.status,
+        callbackCount: r.callback_count,
+        totalSent: r.total_sent,
+        createdAt: r.created_at,
+      };
+    });
+    return NextResponse.json({ success: true, data: transformed });
   } catch (error) {
     console.error("Resumes GET error:", error);
-    return NextResponse.json({ success: true, data: mockResumes });
+    return NextResponse.json(
+      { success: false, error: "Failed to load resumes" },
+      { status: 500 }
+    );
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await verifyFirebaseToken(request);
     const body = await request.json();
 
     if (!body.id) {
@@ -48,17 +52,20 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    if (user) {
-      const updates: Record<string, unknown> = { id: body.id };
-      if (body.content !== undefined) updates.content = body.content;
-      if (body.coverLetter !== undefined) updates.cover_letter = body.coverLetter;
-      if (body.status !== undefined) updates.status = body.status;
-
-      const saved = await upsertResume(supabase, user.id, updates);
-      return NextResponse.json({ success: true, data: saved });
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
-    return NextResponse.json({ success: true, data: body });
+    const updates: Record<string, unknown> = { id: body.id };
+    if (body.content !== undefined) updates.content = body.content;
+    if (body.coverLetter !== undefined) updates.cover_letter = body.coverLetter;
+    if (body.status !== undefined) updates.status = body.status;
+
+    const saved = await upsertResume(user.uid, updates);
+    return NextResponse.json({ success: true, data: saved });
   } catch (error) {
     console.error("Resumes PUT error:", error);
     return NextResponse.json(

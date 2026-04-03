@@ -1,56 +1,69 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { getJobs, upsertJobs } from "@/lib/supabase/queries";
-import { mockJobs } from "@/data/mock-jobs";
+import { verifyFirebaseToken } from "@/lib/firebase/verify-token";
+import { getJobs, upsertJobs } from "@/lib/firebase/firestore";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await verifyFirebaseToken(request);
 
-    if (user) {
-      const jobs = await getJobs(supabase, user.id);
-      if (jobs.length > 0) {
-        // Transform DB format to frontend format
-        const transformed = jobs.map((j: any) => ({
-          id: j.id,
-          title: j.title,
-          company: j.company,
-          location: j.location,
-          salary: j.salary,
-          description: j.description,
-          source: j.source,
-          sourceUrl: j.url,
-          postedAt: j.posted_at,
-          discoveredAt: j.discovered_at,
-          isFresh: j.is_fresh,
-          isRemote: j.is_remote,
-          requiredSkills: j.extracted_skills || [],
-          scores: j.scores,
-          hiddenRequirements: j.hidden_requirements || [],
-          aiReasoning: j.ai_reasoning,
-        }));
-        return NextResponse.json({ success: true, count: transformed.length, data: transformed });
-      }
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
-    // Fallback to mock data
-    return NextResponse.json({ success: true, count: mockJobs.length, data: mockJobs });
+    const jobs = await getJobs(user.uid);
+    // Transform DB format to frontend format
+    const transformed = jobs.map((j: Record<string, unknown>) => ({
+      id: j.id,
+      title: j.title,
+      company: j.company,
+      location: j.location,
+      salary: j.salary,
+      description: j.description,
+      source: j.source,
+      sourceUrl: j.url,
+      postedAt: j.posted_at,
+      discoveredAt: j.discovered_at,
+      isFresh: j.is_fresh,
+      isRemote: j.is_remote,
+      requiredSkills: (j.extracted_skills as string[]) || [],
+      scores: j.scores,
+      hiddenRequirements: j.hidden_requirements || [],
+      aiReasoning: j.ai_reasoning,
+    }));
+    return NextResponse.json({
+      success: true,
+      count: transformed.length,
+      data: transformed,
+    });
   } catch (error) {
     console.error("Jobs GET error:", error);
-    return NextResponse.json({ success: true, count: mockJobs.length, data: mockJobs });
+    return NextResponse.json(
+      { success: false, error: "Failed to load jobs" },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await verifyFirebaseToken(request);
     const body = await request.json();
 
-    if (user && body.jobs?.length) {
-      const dbJobs = body.jobs.map((j: any) => ({
-        id: j.id || `j-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    if (body.jobs?.length) {
+      const dbJobs = body.jobs.map((j: Record<string, unknown>) => ({
+        id:
+          j.id ||
+          `j-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         title: j.title,
         company: j.company,
         location: j.location,
@@ -66,11 +79,11 @@ export async function POST(request: NextRequest) {
         hidden_requirements: j.hiddenRequirements || [],
         ai_reasoning: j.aiReasoning,
       }));
-      const saved = await upsertJobs(supabase, user.id, dbJobs);
+      const saved = await upsertJobs(user.uid, dbJobs);
       return NextResponse.json({ success: true, data: saved });
     }
 
-    return NextResponse.json({ success: true, data: body });
+    return NextResponse.json({ success: true, data: [] });
   } catch (error) {
     console.error("Jobs POST error:", error);
     return NextResponse.json(

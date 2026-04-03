@@ -6,10 +6,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { upsertResume } from "@/lib/supabase/queries";
+import { verifyFirebaseToken } from "@/lib/firebase/verify-token";
+import { getProfile, upsertResume } from "@/lib/firebase/firestore";
 import { writerAgent } from "@/lib/agents/writer";
-import { mockUser } from "@/data/mock-user";
 
 export const maxDuration = 60;
 
@@ -25,28 +24,51 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await verifyFirebaseToken(request);
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const profile = await getProfile(user.uid);
+    const p = profile as Record<string, unknown> | null;
+    const rawSkills = Array.isArray(p?.skills) ? (p?.skills as unknown[]) : [];
+    const skills = rawSkills
+      .map((s) => {
+        if (typeof s === "string") {
+          return { name: s, level: "intermediate" };
+        }
+        const skill = s as { name?: string; level?: string };
+        if (!skill.name) return null;
+        return { name: skill.name, level: skill.level || "intermediate" };
+      })
+      .filter(
+        (s): s is { name: string; level: string } => s !== null
+      );
+    const experience = Array.isArray(p?.experience)
+      ? (p?.experience as Record<string, unknown>[])
+      : [];
+    const preferences = (p?.preferences || {}) as Record<string, unknown>;
 
     // Build agent state for the writer
     const userProfile = {
-      id: user?.id || "demo-user",
-      email: user?.email || mockUser.email,
-      name: mockUser.name,
-      skills: mockUser.skills.map((s) => ({ name: s.name, level: s.level })),
-      experience: mockUser.experience.map((e) => ({
-        company: e.company,
-        title: e.title,
-        startDate: "2022",
-        description: e.description,
-        skillsUsed: e.skills,
-      })),
+      id: user.uid,
+      email: user.email || "",
+      name: (p?.name as string) || user.name || user.email?.split("@")[0] || "",
+      skills,
+      experience,
       preferences: {
-        targetRoles: [mockUser.title],
-        workMode: mockUser.preferences.workMode,
-        locations: mockUser.preferences.locations,
+        targetRoles: Array.isArray(preferences.targetRoles)
+          ? preferences.targetRoles
+          : (p?.title ? [p.title as string] : []),
+        workMode: (preferences.workMode as string) || "",
+        locations: Array.isArray(preferences.locations)
+          ? preferences.locations
+          : [],
       },
-      careerGoal3yr: mockUser.careerGoal,
+      careerGoal3yr: (p?.career_goal as string) || "",
     };
 
     const targetJob = {
@@ -90,7 +112,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Save to Supabase if authenticated
+    // Save to Firestore if authenticated
     const resumeRecord = {
       job_id: jobId || null,
       framing_strategy: generated.framingStrategy || "general",
@@ -99,23 +121,11 @@ export async function POST(request: NextRequest) {
       status: "draft",
     };
 
-    if (user) {
-      const saved = await upsertResume(supabase, user.id, resumeRecord);
-      return NextResponse.json({
-        success: true,
-        data: {
-          id: saved?.id || `r-${Date.now()}`,
-          ...resumeRecord,
-          jobTitle,
-          jobCompany,
-        },
-      });
-    }
-
+    const saved = await upsertResume(user.uid, resumeRecord);
     return NextResponse.json({
       success: true,
       data: {
-        id: `r-${Date.now()}`,
+        id: (saved as Record<string, unknown>)?.id || `r-${Date.now()}`,
         ...resumeRecord,
         jobTitle,
         jobCompany,
@@ -124,7 +134,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Resume generation error:", error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }
@@ -142,24 +155,28 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await verifyFirebaseToken(request);
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
 
     const updates: Record<string, unknown> = { id };
     if (content !== undefined) updates.content = content;
     if (coverLetter !== undefined) updates.cover_letter = coverLetter;
     if (status !== undefined) updates.status = status;
 
-    if (user) {
-      const saved = await upsertResume(supabase, user.id, updates);
-      return NextResponse.json({ success: true, data: saved });
-    }
-
-    return NextResponse.json({ success: true, data: { ...updates } });
+    const saved = await upsertResume(user.uid, updates);
+    return NextResponse.json({ success: true, data: saved });
   } catch (error) {
     console.error("Resume update error:", error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }

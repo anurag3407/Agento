@@ -17,6 +17,17 @@ interface RunAgentsRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    if (!process.env.GOOGLE_API_KEY) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "GOOGLE_API_KEY is not set. Configure it to run AI agents.",
+        },
+        { status: 400 }
+      );
+    }
+
     const body: RunAgentsRequest = await request.json();
     
     if (!body.userId) {

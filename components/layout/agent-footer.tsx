@@ -1,7 +1,7 @@
 "use client";
 
-import { mockAgentEvents } from "@/data/mock-agents";
 import { Search, BarChart3, PenTool, Target, Mail } from "lucide-react";
+import { useStore } from "@/lib/store";
 
 const agentIcons = {
   scout: Search,
@@ -20,7 +20,13 @@ const agentColors = {
 };
 
 export default function AgentFooter() {
-  const latestEvent = mockAgentEvents[0];
+  const { state } = useStore();
+  const latestEvent = state.agentEvents[0];
+
+  if (!latestEvent) {
+    return null;
+  }
+
   const Icon = agentIcons[latestEvent.agent];
 
   return (

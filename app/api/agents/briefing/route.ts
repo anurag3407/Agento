@@ -6,46 +6,75 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { getLatestBriefing, upsertBriefing, getJobs } from "@/lib/supabase/queries";
-import { mockJobs } from "@/data/mock-jobs";
-import { mockUser } from "@/data/mock-user";
+import { verifyFirebaseToken } from "@/lib/firebase/verify-token";
+import {
+  getLatestBriefing,
+  upsertBriefing,
+  getJobs,
+  getProfile,
+} from "@/lib/firebase/firestore";
 
 export const maxDuration = 60;
 
-async function generateBriefingContent(jobs: any[], userSkills: string[]) {
+async function generateBriefingContent(
+  jobs: Record<string, unknown>[],
+  userSkills: string[]
+) {
   const topJobs = jobs
-    .filter((j: any) => j.scores?.composite)
-    .sort((a: any, b: any) => (b.scores?.composite || 0) - (a.scores?.composite || 0))
+    .filter(
+      (j) =>
+        (j.scores as Record<string, number> | undefined)?.composite !==
+        undefined
+    )
+    .sort(
+      (a, b) =>
+        ((b.scores as Record<string, number>)?.composite || 0) -
+        ((a.scores as Record<string, number>)?.composite || 0)
+    )
     .slice(0, 5);
 
-  const highMatches = topJobs.filter((j: any) => (j.scores?.composite || 0) >= 85);
-  const newToday = jobs.filter((j: any) => j.isFresh || j.is_fresh);
+  const highMatches = topJobs.filter(
+    (j) =>
+      ((j.scores as Record<string, number>)?.composite || 0) >= 85
+  );
+  const newToday = jobs.filter((j) => j.isFresh || j.is_fresh);
 
-  const marketInsights = [];
-  const remoteCount = jobs.filter((j: any) => j.isRemote || j.is_remote).length;
+  const marketInsights: string[] = [];
+  const remoteCount = jobs.filter((j) => j.isRemote || j.is_remote).length;
   if (remoteCount > jobs.length * 0.5) {
-    marketInsights.push(`${Math.round((remoteCount / Math.max(jobs.length, 1)) * 100)}% of positions are remote-friendly`);
+    marketInsights.push(
+      `${Math.round(
+        (remoteCount / Math.max(jobs.length, 1)) * 100
+      )}% of positions are remote-friendly`
+    );
   }
-  const sources = [...new Set(jobs.map((j: any) => j.source).filter(Boolean))];
+  const sources = [
+    ...new Set(jobs.map((j) => j.source as string).filter(Boolean)),
+  ];
   if (sources.length > 0) {
     marketInsights.push(`Jobs sourced from ${sources.join(", ")}`);
   }
-  marketInsights.push(`${highMatches.length} roles are 85%+ matches for your profile`);
+  marketInsights.push(
+    `${highMatches.length} roles are 85%+ matches for your profile`
+  );
 
-  const actionItems = [];
+  const actionItems: Record<string, unknown>[] = [];
   if (highMatches.length > 0) {
     actionItems.push({
       type: "apply",
       title: `Apply to ${highMatches[0]?.company || "top match"}`,
-      description: `${highMatches[0]?.title || "High-match role"} scored ${highMatches[0]?.scores?.composite || 90}% match`,
+      description: `${highMatches[0]?.title || "High-match role"} scored ${
+        (highMatches[0]?.scores as Record<string, number>)?.composite || 90
+      }% match`,
       priority: "high",
     });
   }
   if (topJobs.length >= 2) {
     actionItems.push({
       type: "prepare",
-      title: `Prepare materials for ${topJobs[1]?.company || "second match"}`,
+      title: `Prepare materials for ${
+        topJobs[1]?.company || "second match"
+      }`,
       description: "Generate a tailored resume and cover letter",
       priority: "medium",
     });
@@ -64,52 +93,85 @@ async function generateBriefingContent(jobs: any[], userSkills: string[]) {
     "The job market rewards preparation. You're already ahead by using AI to optimize. 🧠",
   ];
 
+  const skillLabel =
+    userSkills.length > 0
+      ? `${userSkills.slice(0, 3).join(", ")} skills`
+      : "profile";
+
   return {
-    summary: `Good morning! ${newToday.length > 0 ? `${newToday.length} fresh opportunities` : "No new jobs"} found today. ${highMatches.length > 0 ? `${highMatches.length} are excellent matches for your ${userSkills.slice(0, 3).join(", ")} skills.` : "Keep your profile updated for better matches."}`,
-    top_matches: topJobs.slice(0, 3).map((j: any) => ({
+    summary: `Good morning! ${
+      newToday.length > 0
+        ? `${newToday.length} fresh opportunities`
+        : "No new jobs"
+    } found today. ${
+      highMatches.length > 0
+        ? `${highMatches.length} are excellent matches for your ${skillLabel}.`
+        : "Keep your profile updated for better matches."
+    }`,
+    top_matches: topJobs.slice(0, 3).map((j) => ({
       jobId: j.id,
       title: j.title,
       company: j.company,
-      score: j.scores?.composite || 0,
-      highlight: j.ai_reasoning || j.aiReasoning || "Great fit for your background",
+      score: (j.scores as Record<string, number>)?.composite || 0,
+      highlight:
+        (j.ai_reasoning as string) ||
+        (j.aiReasoning as string) ||
+        "Great fit for your background",
     })),
     market_insights: marketInsights,
     action_items: actionItems,
-    encouragement: encouragements[Math.floor(Math.random() * encouragements.length)],
+    encouragement:
+      encouragements[Math.floor(Math.random() * encouragements.length)],
   };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await verifyFirebaseToken(request);
 
-    if (user) {
-      // Try to get today's cached briefing from Supabase
-      const existing = await getLatestBriefing(supabase, user.id);
-      if (existing) {
-        return NextResponse.json({ success: true, data: existing, cached: true });
-      }
-
-      // Generate fresh briefing
-      const jobs = await getJobs(supabase, user.id);
-      const userSkills = mockUser.skills.map((s) => s.name); // fallback
-      const briefingContent = await generateBriefingContent(
-        jobs.length > 0 ? jobs : mockJobs,
-        userSkills
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
       );
-
-      const saved = await upsertBriefing(supabase, user.id, briefingContent);
-      return NextResponse.json({ success: true, data: saved || briefingContent });
     }
 
-    // Fallback: generate from mock data
-    const briefingContent = await generateBriefingContent(mockJobs, mockUser.skills.map((s) => s.name));
-    return NextResponse.json({ success: true, data: { id: "mock", ...briefingContent } });
+    // Try to get today's cached briefing
+    const existing = await getLatestBriefing(user.uid);
+    if (existing) {
+      return NextResponse.json({
+        success: true,
+        data: existing,
+        cached: true,
+      });
+    }
+
+    // Generate fresh briefing
+    const jobs = await getJobs(user.uid);
+    const profile = await getProfile(user.uid);
+    const p = profile as Record<string, unknown> | null;
+    const skills = Array.isArray(p?.skills) ? (p?.skills as unknown[]) : [];
+    const userSkills = skills
+      .map((s) => (typeof s === "string" ? s : (s as { name?: string }).name))
+      .filter((s): s is string => Boolean(s));
+
+    const briefingContent = await generateBriefingContent(
+      jobs as Record<string, unknown>[],
+      userSkills
+    );
+
+    const saved = await upsertBriefing(user.uid, briefingContent);
+    return NextResponse.json({
+      success: true,
+      data: saved || briefingContent,
+    });
   } catch (error) {
     console.error("Briefing API error:", error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }
@@ -117,26 +179,40 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await verifyFirebaseToken(request);
 
-    const jobs = user ? await getJobs(supabase, user.id) : [];
-    const userSkills = mockUser.skills.map((s) => s.name);
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const jobs = await getJobs(user.uid);
+    const profile = await getProfile(user.uid);
+    const p = profile as Record<string, unknown> | null;
+    const skills = Array.isArray(p?.skills) ? (p?.skills as unknown[]) : [];
+    const userSkills = skills
+      .map((s) => (typeof s === "string" ? s : (s as { name?: string }).name))
+      .filter((s): s is string => Boolean(s));
+
     const briefingContent = await generateBriefingContent(
-      jobs.length > 0 ? jobs : mockJobs,
+      jobs as Record<string, unknown>[],
       userSkills
     );
 
-    if (user) {
-      const saved = await upsertBriefing(supabase, user.id, briefingContent);
-      return NextResponse.json({ success: true, data: saved || briefingContent });
-    }
-
-    return NextResponse.json({ success: true, data: { id: `brief-${Date.now()}`, ...briefingContent } });
+    const saved = await upsertBriefing(user.uid, briefingContent);
+    return NextResponse.json({
+      success: true,
+      data: saved || briefingContent,
+    });
   } catch (error) {
     console.error("Briefing POST error:", error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }
